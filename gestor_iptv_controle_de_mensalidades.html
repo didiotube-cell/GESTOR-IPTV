@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor IPTV • Controle de Mensalidades e Lucros</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Tone.js para alerta sonoro sutil nas notificações sem depender de arquivos externos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        darkbg: '#090d16',
+                        cardbg: '#111827',
+                        cardhover: '#1f2937',
+                        neonblue: '#3b82f6',
+                        neonpurple: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #090d16;
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+
+        /* Efeito de brilho neon sutil */
+        .neon-glow {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+        }
+        .pulse-alert {
+            animation: pulseBorder 2s infinite;
+        }
+        @keyframes pulseBorder {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- ==================== HEADER / NAVBAR ==================== -->
+    <header class="sticky top-0 z-30 bg-[#090d16]/90 backdrop-blur-md border-b border-gray-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <!-- Logo e Título -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i class="ph-bold ph-television-simple text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent">
+                        Gestor IPTV
+                    </h1>
+                    <p class="text-xs text-gray-400 hidden sm:block">Painel Inteligente de Mensalidades & Lucros</p>
+                </div>
+            </div>
+
+            <!-- Controles de Notificação & Backup -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- Botão Ativar Notificações -->
+                <button id="btnEnableNotifications" onclick="requestNotificationPermission()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition-all cursor-pointer">
+                    <i id="notifIcon" class="ph-bold ph-bell-ringing text-amber-400 text-base"></i>
+                    <span id="notifStatusText">Ativar Notificações</span>
+                </button>
+
+                <!-- Botão Testar Notificação -->
+                <button onclick="testNotification()" title="Testar alerta visual, sonoro e do navegador" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-800/60 transition-all cursor-pointer">
+                    <i class="ph-bold ph-speaker-high text-base"></i>
+                    <span class="hidden md:inline">Testar Alerta</span>
+                </button>
+
+                <!-- Botão Exportar JSON -->
+                <button onclick="exportData()" title="Baixar backup dos clientes" class="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-all cursor-pointer">
+                    <i class="ph-bold ph-download-simple text-base"></i>
+                </button>
+
+                <!-- Botão Importar JSON -->
+                <label title="Restaurar backup (.json)" class="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-all cursor-pointer">
+                    <i class="ph-bold ph-upload-simple text-base"></i>
+                    <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
+                </label>
+
+                <!-- Botão Novo Cliente -->
+                <button onclick="openClientModal()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/25 transition-all cursor-pointer">
+                    <i class="ph-bold ph-plus text-base"></i>
+                    <span>Novo Cliente</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==================== CONTEÚDO PRINCIPAL ==================== -->
+    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-grow">
+
+        <!-- BANNER INTELIGENTE DE ALERTAS (Vencendo em 3 dias / Hoje / Vencidos) -->
+        <section id="alertBanner" class="hidden rounded-2xl bg-gradient-to-r from-amber-950/80 via-red-950/60 to-gray-900 border border-amber-500/40 p-4 shadow-xl pulse-alert">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mt-0.5">
+                        <i class="ph-fill ph-warning-circle text-amber-400 text-2xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm sm:text-base font-bold text-amber-200 flex items-center gap-2">
+                            Central de Alertas de Vencimento
+                            <span id="alertTotalBadge" class="px-2 py-0.5 text-xs rounded-full bg-amber-500 text-gray-950 font-extrabold">0</span>
+                        </h2>
+                        <p id="alertSummaryText" class="text-xs sm:text-sm text-gray-300 mt-1">
+                            Verificando vencimentos próximos...
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="setFilter('urgent')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-gray-950 transition-all cursor-pointer">
+                        Ver Clientes em Alerta
+                    </button>
+                    <button onclick="dismissAlertBanner()" class="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800/60 transition-all cursor-pointer" title="Ocultar aviso temporariamente">
+                        <i class="ph-bold ph-x text-base"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- DASHBOARD FINANCEIRO & CONTADORES -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Card 1: Total a Receber -->
+            <div class="rounded-2xl bg-gray-900/90 border border-gray-800 p-5 neon-glow relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total a Receber</span>
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <i class="ph-bold ph-arrow-down-left text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p id="statReceber" class="text-2xl sm:text-3xl font-extrabold text-emerald-400">R$ 0,00</p>
+                    <p class="text-xs text-gray-400 mt-1">Soma das mensalidades cadastradas</p>
+                </div>
+            </div>
+
+            <!-- Card 2: Total de Gastos (Custo Painel/Créditos) -->
+            <div class="rounded-2xl bg-gray-900/90 border border-gray-800 p-5 neon-glow relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total de Gastos</span>
+                    <div class="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                        <i class="ph-bold ph-arrow-up-right text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p id="statGastos" class="text-2xl sm:text-3xl font-extrabold text-rose-400">R$ 0,00</p>
+                    <p class="text-xs text-gray-400 mt-1">Custo total com créditos / servidores</p>
+                </div>
+            </div>
+
+            <!-- Card 3: Lucro Líquido Estimado -->
+            <div class="rounded-2xl bg-gradient-to-br from-indigo-950/70 via-gray-900 to-purple-950/60 border border-indigo-500/30 p-5 neon-glow relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-indigo-300">Lucro Líquido</span>
+                    <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+                        <i class="ph-bold ph-wallet text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p id="statLucro" class="text-2xl sm:text-3xl font-extrabold text-white">R$ 0,00</p>
+                    <p id="statMargem" class="text-xs text-indigo-300 mt-1">Margem de lucro: 0%</p>
+                </div>
+            </div>
+
+            <!-- Card 4: Resumo de Clientes -->
+            <div class="rounded-2xl bg-gray-900/90 border border-gray-800 p-5 neon-glow flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Status da Base</span>
+                    <span id="statTotalClientes" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">0 clientes</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-3 text-center">
+                    <div class="p-2 rounded-xl bg-gray-800/70 border border-gray-700/60">
+                        <p id="countOk" class="text-lg font-extrabold text-emerald-400">0</p>
+                        <p class="text-[11px] text-gray-400">Em dia</p>
+                    </div>
+                    <div class="p-2 rounded-xl bg-amber-950/40 border border-amber-500/30">
+                        <p id="countSoon" class="text-lg font-extrabold text-amber-400">0</p>
+                        <p class="text-[11px] text-amber-300/80">≤ 3 dias</p>
+                    </div>
+                    <div class="p-2 rounded-xl bg-rose-950/40 border border-rose-500/30">
+                        <p id="countExpired" class="text-lg font-extrabold text-rose-400">0</p>
+                        <p class="text-[11px] text-rose-300/80">Vencidos</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BARRA DE FILTROS E BUSCA -->
+        <section class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-gray-900/70 p-3.5 rounded-2xl border border-gray-800">
+            <!-- Botões de Filtro -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0" id="filterTabs">
+                <button data-filter="all" onclick="setFilter('all')" class="filter-btn active px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer bg-blue-600 text-white">
+                    Todos (<span id="badgeAll">0</span>)
+                </button>
+                <button data-filter="soon" onclick="setFilter('soon')" class="filter-btn px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer bg-gray-800 text-gray-300 hover:bg-gray-700">
+                    Faltam ≤ 3 dias (<span id="badgeSoon">0</span>)
+                </button>
+                <button data-filter="today" onclick="setFilter('today')" class="filter-btn px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer bg-gray-800 text-gray-300 hover:bg-gray-700">
+                    Vencem Hoje (<span id="badgeToday">0</span>)
+                </button>
+                <button data-filter="expired" onclick="setFilter('expired')" class="filter-btn px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer bg-gray-800 text-gray-300 hover:bg-gray-700">
+                    Vencidos (<span id="badgeExpired">0</span>)
+                </button>
+                <button data-filter="ok" onclick="setFilter('ok')" class="filter-btn px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer bg-gray-800 text-gray-300 hover:bg-gray-700">
+                    Em Dia (<span id="badgeOk">0</span>)
+                </button>
+            </div>
+
+            <!-- Campo de Busca -->
+            <div class="relative w-full md:w-72">
+                <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
+                <input type="text" id="searchInput" oninput="renderClients()" placeholder="Buscar cliente ou servidor..." class="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-950 border border-gray-800 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all">
+            </div>
+        </section>
+
+        <!-- GRID DE CARDS DOS CLIENTES -->
+        <section id="clientsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Os cards serão renderizados via JavaScript -->
+        </section>
+
+        <!-- ESTADO VAZIO (Quando não há clientes) -->
+        <section id="emptyState" class="hidden text-center py-16 px-4 rounded-2xl bg-gray-900/50 border border-dashed border-gray-800">
+            <div class="w-16 h-16 rounded-2xl bg-gray-800/80 flex items-center justify-center mx-auto mb-4 text-indigo-400">
+                <i class="ph-duotone ph-users-three text-3xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-200">Nenhum cliente encontrado</h3>
+            <p class="text-sm text-gray-400 max-w-md mx-auto mt-1">
+                Cadastre seu primeiro cliente de IPTV com foto, valor do plano, custo e data de vencimento para começar o monitoramento automático.
+            </p>
+            <button onclick="openClientModal()" class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg cursor-pointer">
+                <i class="ph-bold ph-plus"></i>
+                Adicionar Primeiro Cliente
+            </button>
+        </section>
+
+    </main>
+
+    <!-- ==================== MODAL DE CADASTRO / EDIÇÃO DE CLIENTE ==================== -->
+    <div id="clientModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-auto">
+            <!-- Cabeçalho Modal -->
+            <div class="flex items-center justify-between pb-4 border-b border-gray-800">
+                <h3 id="modalTitle" class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="ph-bold ph-user-plus text-blue-400"></i>
+                    <span>Novo Cliente IPTV</span>
+                </h3>
+                <button onclick="closeClientModal()" class="p-1.5 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800 transition-all cursor-pointer">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Formulário -->
+            <form id="clientForm" onsubmit="saveClient(event)" class="mt-4 space-y-4">
+                <input type="hidden" id="clientId">
+
+                <!-- Upload de Foto com Preview -->
+                <div class="flex items-center gap-4 bg-gray-950/60 p-3.5 rounded-xl border border-gray-800">
+                    <div id="photoPreviewContainer" class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xl overflow-hidden shrink-0 border border-gray-700">
+                        <span id="photoInitialsPreview">IP</span>
+                        <img id="photoImgPreview" src="" alt="Preview" class="w-full h-full object-cover hidden">
+                    </div>
+                    <div class="flex-grow">
+                        <label class="block text-xs font-semibold text-gray-300 mb-1">Foto do Cliente (Opcional)</label>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <label class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-medium text-gray-200 border border-gray-700 cursor-pointer transition-all inline-flex items-center gap-1.5">
+                                <i class="ph-bold ph-camera"></i>
+                                <span>Escolher Foto</span>
+                                <input type="file" id="clientPhotoInput" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
+                            </label>
+                            <button type="button" id="btnRemovePhoto" onclick="removePhoto()" class="hidden px-2.5 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/70 text-xs text-rose-300 border border-rose-800/50 cursor-pointer">
+                                Remover
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-gray-500 mt-1">Otimizada automaticamente para salvar leve no aparelho.</p>
+                    </div>
+                </div>
+
+                <!-- Nome e WhatsApp -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-300 mb-1">Nome do Cliente *</label>
+                        <input type="text" id="clientName" required oninput="updateInitialsPreview()" placeholder="Ex: Carlos Silva" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-950 border border-gray-800 text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-300 mb-1">WhatsApp (com DDD)</label>
+                        <input type="tel" id="clientPhone" placeholder="Ex: 11999998888" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-950 border border-gray-800 text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Valores: Plano (Receita) e Gasto (Custo) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-emerald-400 mb-1">Valor do Plano (Receber R$) *</label>
+                        <input type="number" id="clientPrice" step="0.01" min="0" required oninput="updateModalProfitPreview()" placeholder="35.00" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-950 border border-gray-800 text-sm text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-rose-400 mb-1">Seu Gasto / Custo (R$) *</label>
+                        <input type="number" id="clientCost" step="0.01" min="0" required oninput="updateModalProfitPreview()" placeholder="10.00" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-950 border border-gray-800 text-sm text-white focus:outline-none focus:border-rose-500">
+                    </div>
+                </div>
+
+                <!-- Prévia de Lucro Individual -->
+                <div class="px-3.5 py-2 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-xs">
+                    <span class="text-indigo-200">Lucro líquido neste cliente:</span>
+                    <span id="modalProfitPreview" class="font-bold text-sm text-emerald-400">R$ 0,00</span>
+                </div>
+
+                <!-- Data de Vencimento + Atalho +30 dias -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Data de Vencimento *</label>
+                    <div class="flex items-center gap-2">
+                        <input type="date" id="clientDueDate" required class="flex-grow px-3.5 py-2.5 rounded-xl bg-gray-950 border border-gray-800 text-sm text-white focus:outline-none focus:border-blue-500">
+                        <button type="button" onclick="addDaysToModalDate(30)" class="px-3 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-blue-300 border border-gray-700 whitespace-nowrap cursor-pointer">
+                            +30 dias
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Servidor / Plano / Observações -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Servidor / Tela / Observação</label>
+                    <input type="text" id="clientNotes" placeholder="Ex: Servidor P2P • 1 Tela • App XCIPTV" class="w-full px-3.5 py-2.5 rounded-xl bg-gray-950 border border-gray-800 text-sm text-white focus:outline-none focus:border-blue-500">
+                </div>
+
+                <!-- Botões de Ação -->
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
+                    <button type="button" onclick="closeClientModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 transition-all cursor-pointer">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg cursor-pointer">
+                        Salvar Cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ==================== -->
+    <div id="deleteModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-3">
+                <i class="ph-bold ph-trash text-2xl"></i>
+            </div>
+            <h3 class="text-base font-bold text-white">Excluir Cliente?</h3>
+            <p id="deleteModalText" class="text-xs text-gray-400 mt-1">Tem certeza que deseja remover este cliente?</p>
+            <div class="flex items-center justify-center gap-2 mt-5">
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 cursor-pointer">
+                    Cancelar
+                </button>
+                <button id="confirmDeleteBtn" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white cursor-pointer">
+                    Sim, Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TOAST / NOTIFICAÇÃO INTERNA FLUTUANTE ==================== -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer class="border-t border-gray-800/80 py-4 text-center text-xs text-gray-500">
+        Gestor IPTV • Dados salvos localmente no seu navegador com verificação automática de vencimentos.
+    </footer>
+
+    <!-- ==================== JAVASCRIPT COMPLETO ==================== -->
+    <script>
+        // ==================== ESTADO GLOBAL E CONSTANTES ====================
+        const STORAGE_KEY = 'gestor_iptv_clients_v1';
+        const NOTIFIED_LOG_KEY = 'gestor_iptv_notified_today_v1';
+
+        let clients = [];
+        let currentFilter = 'all';
+        let currentPhotoBase64 = '';
+        let clientToDeleteId = null;
+
+        // ==================== INICIALIZAÇÃO ====================
+        window.onload = function () {
+            loadClientsFromStorage();
+            updateNotificationButtonState();
+            renderAll();
+
+            // Executa a verificação de notificações 1 segundo após abrir o app
+            setTimeout(() => {
+                checkAndTriggerNotifications(false);
+            }, 1000);
+
+            // Verifica periodicamente a cada 30 minutos enquanto a aba estiver aberta
+            setInterval(() => {
+                checkAndTriggerNotifications(false);
+            }, 30 * 60 * 1000);
+        };
+
+        // ==================== PERSISTÊNCIA (LOCALSTORAGE) ====================
+        function loadClientsFromStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    clients = JSON.parse(raw);
+                } else {
+                    // Dados de exemplo iniciais para o usuário visualizar o funcionamento imediatamente
+                    const today = new Date();
+                    const in3Days = new Date(today);
+                    in3Days.setDate(today.getDate() + 3);
+                    const in15Days = new Date(today);
+                    in15Days.setDate(today.getDate() + 15);
+
+                    clients = [
+                        {
+                            id: 'demo-1',
+                            name: 'Cliente Exemplo (Vence em 3 dias)',
+                            phone: '11999999999',
+                            price: 35.00,
+                            cost: 10.00,
+                            dueDate: formatDateISO(in3Days),
+                            notes: 'Servidor P2P • 1 Tela',
+                            photo: ''
+                        },
+                        {
+                            id: 'demo-2',
+                            name: 'Maria Oliveira (Vence Hoje)',
+                            phone: '21988888888',
+                            price: 45.00,
+                            cost: 15.00,
+                            dueDate: formatDateISO(today),
+                            notes: 'IPTV Full HD • 2 Telas',
+                            photo: ''
+                        },
+                        {
+                            id: 'demo-3',
+                            name: 'João Santos (Em Dia)',
+                            phone: '31977777777',
+                            price: 35.00,
+                            cost: 10.00,
+                            dueDate: formatDateISO(in15Days),
+                            notes: 'Smart TV Samsung',
+                            photo: ''
+                        }
+                    ];
+                    saveClientsToStorage();
+                }
+            } catch (err) {
+                console.error('Erro ao carregar dados:', err);
+                clients = [];
+            }
+        }
+
+        function saveClientsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(clients));
+            } catch (err) {
+                showToast('Atenção: Limite de armazenamento do navegador atingido. Tente usar fotos menores.', 'error');
+            }
+        }
+
+        // ==================== UTILITÁRIOS DE DATA E MOEDA ====================
+        function formatDateISO(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDateBR(isoString) {
+            if (!isoString) return '--/--/----';
+            const [year, month, day] = isoString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function formatCurrency(value) {
+            return Number(value || 0).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            });
+        }
+
+        /**
+         * Calcula a diferença exata em dias corridos entre HOJE (00:00) e a data de vencimento (00:00).
+         * Retorna:
+         *  < 0 : Vencido há X dias
+         *  = 0 : Vence HOJE
+         *  1..3: Faltam 1 a 3 dias (Alerta!)
+         *  > 3 : Em dia
+         */
+        function getDaysRemaining(dueDateISO) {
+            const now = new Date();
+            const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            const [y, m, d] = dueDateISO.split('-').map(Number);
+            const dueMidnight = new Date(y, m - 1, d);
+
+            const diffMs = dueMidnight - todayMidnight;
+            return Math.round(diffMs / (1000 * 60 * 60 * 24));
+        }
+
+        function getInitials(name) {
+            if (!name) return 'CL';
+            const parts = name.trim().split(/\s+/);
+            if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        // ==================== RENDERIZAÇÃO DO DASHBOARD E LISTA ====================
+        function renderAll() {
+            updateDashboardStats();
+            renderClients();
+            updateAlertBanner();
+        }
+
+        function updateDashboardStats() {
+            let totalReceber = 0;
+            let totalGastos = 0;
+            let countOk = 0;
+            let countSoon = 0;
+            let countToday = 0;
+            let countExpired = 0;
+
+            clients.forEach(c => {
+                totalReceber += Number(c.price || 0);
+                totalGastos += Number(c.cost || 0);
+
+                const days = getDaysRemaining(c.dueDate);
+                if (days < 0) {
+                    countExpired++;
+                } else if (days === 0) {
+                    countToday++;
+                    countSoon++; // Também entra na contagem de atenção imediata
+                } else if (days <= 3) {
+                    countSoon++;
+                } else {
+                    countOk++;
+                }
+            });
+
+            const totalLucro = totalReceber - totalGastos;
+            const margem = totalReceber > 0 ? ((totalLucro / totalReceber) * 100).toFixed(1) : 0;
+
+            document.getElementById('statReceber').textContent = formatCurrency(totalReceber);
+            document.getElementById('statGastos').textContent = formatCurrency(totalGastos);
+            document.getElementById('statLucro').textContent = formatCurrency(totalLucro);
+            document.getElementById('statMargem').textContent = `Margem de lucro: ${margem}%`;
+
+            document.getElementById('statTotalClientes').textContent = `${clients.length} ${clients.length === 1 ? 'cliente' : 'clientes'}`;
+            document.getElementById('countOk').textContent = countOk;
+            document.getElementById('countSoon').textContent = countSoon;
+            document.getElementById('countExpired').textContent = countExpired;
+
+            // Badges nos filtros
+            document.getElementById('badgeAll').textContent = clients.length;
+            document.getElementById('badgeSoon').textContent = clients.filter(c => {
+                const d = getDaysRemaining(c.dueDate);
+                return d >= 1 && d <= 3;
+            }).length;
+            document.getElementById('badgeToday').textContent = countToday;
+            document.getElementById('badgeExpired').textContent = countExpired;
+            document.getElementById('badgeOk').textContent = countOk;
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.classList.remove('bg-gray-800', 'text-gray-300');
+                    btn.classList.add('bg-blue-600', 'text-white');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-800', 'text-gray-300');
+                }
+            });
+            renderClients();
+        }
+
+        function renderClients() {
+            const grid = document.getElementById('clientsGrid');
+            const emptyState = document.getElementById('emptyState');
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+
+            // Ordena: vencidos e mais próximos de vencer primeiro
+            const sorted = [...clients].sort((a, b) => getDaysRemaining(a.dueDate) - getDaysRemaining(b.dueDate));
+
+            const filtered = sorted.filter(c => {
+                const days = getDaysRemaining(c.dueDate);
+                const matchesSearch = c.name.toLowerCase().includes(query) ||
+                    (c.notes && c.notes.toLowerCase().includes(query)) ||
+                    (c.phone && c.phone.includes(query));
+
+                if (!matchesSearch) return false;
+
+                if (currentFilter === 'soon') return days >= 1 && days <= 3;
+                if (currentFilter === 'today') return days === 0;
+                if (currentFilter === 'expired') return days < 0;
+                if (currentFilter === 'ok') return days > 3;
+                if (currentFilter === 'urgent') return days <= 3;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            grid.innerHTML = filtered.map(client => {
+                const days = getDaysRemaining(client.dueDate);
+                const profit = Number(client.price) - Number(client.cost);
+
+                // Definição visual de status
+                let statusBadge = '';
+                let cardBorder = 'border-gray-800 hover:border-gray-700';
+
+                if (days < 0) {
+                    const overdueDays = Math.abs(days);
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                        <i class="ph-fill ph-warning-octagon"></i> Vencido há ${overdueDays} ${overdueDays === 1 ? 'dia' : 'dias'}
+                    </span>`;
+                    cardBorder = 'border-rose-500/40 bg-rose-950/10';
+                } else if (days === 0) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500 text-gray-950 flex items-center gap-1 animate-pulse">
+                        <i class="ph-fill ph-bell-ringing"></i> VENCE HOJE!
+                    </span>`;
+                    cardBorder = 'border-amber-500/60 bg-amber-950/15';
+                } else if (days <= 3) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                        <i class="ph-fill ph-clock-countdown"></i> Faltam ${days} ${days === 1 ? 'dia' : 'dias'}
+                    </span>`;
+                    cardBorder = 'border-amber-500/40';
+                } else {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <i class="ph-fill ph-check-circle"></i> Faltam ${days} dias
+                    </span>`;
+                }
+
+                // Avatar ou Foto
+                const avatarHtml = client.photo
+                    ? `<img src="${client.photo}" alt="${escapeHtml(client.name)}" class="w-14 h-14 rounded-2xl object-cover border border-gray-700 shrink-0">`
+                    : `<div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0 border border-indigo-400/30">${getInitials(client.name)}</div>`;
+
+                return `
+                <article class="rounded-2xl bg-gray-900/95 border ${cardBorder} p-4 flex flex-col justify-between transition-all shadow-lg">
+                    <div>
+                        <!-- Topo: Foto, Nome e Status -->
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                ${avatarHtml}
+                                <div class="min-w-0">
+                                    <h3 class="font-bold text-base text-white truncate" title="${escapeHtml(client.name)}">${escapeHtml(client.name)}</h3>
+                                    <p class="text-xs text-gray-400 truncate mt-0.5">${client.notes ? escapeHtml(client.notes) : 'Plano Padrão IPTV'}</p>
+                                    <p class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                                        <i class="ph ph-calendar-blank text-blue-400"></i>
+                                        Vencimento: <strong class="text-gray-200">${formatDateBR(client.dueDate)}</strong>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Badge de Status -->
+                        <div class="mt-3 flex items-center justify-between">
+                            ${statusBadge}
+                            ${client.phone ? `<span class="text-[11px] text-gray-500">${escapeHtml(client.phone)}</span>` : ''}
+                        </div>
+
+                        <!-- Resumo Financeiro do Cliente -->
+                        <div class="grid grid-cols-3 gap-2 mt-3.5 p-2.5 rounded-xl bg-gray-950/80 border border-gray-800/80 text-center">
+                            <div>
+                                <p class="text-[10px] uppercase text-gray-500 font-semibold">Receber</p>
+                                <p class="text-xs sm:text-sm font-bold text-emerald-400">${formatCurrency(client.price)}</p>
+                            </div>
+                            <div class="border-x border-gray-800">
+                                <p class="text-[10px] uppercase text-gray-500 font-semibold">Gasto</p>
+                                <p class="text-xs sm:text-sm font-bold text-rose-400">${formatCurrency(client.cost)}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] uppercase text-gray-500 font-semibold">Lucro</p>
+                                <p class="text-xs sm:text-sm font-bold ${profit >= 0 ? 'text-indigo-300' : 'text-rose-400'}">${formatCurrency(profit)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botões de Ação Rápida -->
+                    <div class="flex items-center gap-2 mt-4 pt-3 border-t border-gray-800/80">
+                        <button onclick="renewClient('${client.id}')" title="Renovar por +30 dias" class="flex-1 py-2 px-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer">
+                            <i class="ph-bold ph-arrows-clockwise"></i>
+                            <span>+30d</span>
+                        </button>
+
+                        <button onclick="sendWhatsAppReminder('${client.id}')" title="Enviar cobrança no WhatsApp" class="flex-1 py-2 px-2.5 rounded-xl bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer">
+                            <i class="ph-bold ph-whatsapp-logo"></i>
+                            <span>Cobrar</span>
+                        </button>
+
+                        <button onclick="openClientModal('${client.id}')" title="Editar cliente" class="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-all cursor-pointer">
+                            <i class="ph-bold ph-pencil-simple text-sm"></i>
+                        </button>
+
+                        <button onclick="askDeleteClient('${client.id}')" title="Excluir cliente" class="p-2 rounded-xl bg-gray-800 hover:bg-rose-950 text-gray-400 hover:text-rose-400 border border-gray-700 transition-all cursor-pointer">
+                            <i class="ph-bold ph-trash text-sm"></i>
+                        </button>
+                    </div>
+                </article>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== SISTEMA DE NOTIFICAÇÕES (BROWSER + BANNER + SOM) ====================
+        function updateNotificationButtonState() {
+            const btn = document.getElementById('btnEnableNotifications');
+            const text = document.getElementById('notifStatusText');
+            const icon = document.getElementById('notifIcon');
+
+            if (!('Notification' in window)) {
+                text.textContent = 'Notif. Indisponível';
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                text.textContent = 'Notificações Ativas';
+                icon.className = 'ph-fill ph-bell-ringing text-emerald-400 text-base';
+                btn.classList.add('border-emerald-500/40');
+            } else if (Notification.permission === 'denied') {
+                text.textContent = 'Notif. Bloqueadas';
+                icon.className = 'ph-bold ph-bell-slash text-rose-400 text-base';
+            } else {
+                text.textContent = 'Ativar Notificações';
+                icon.className = 'ph-bold ph-bell-ringing text-amber-400 text-base';
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) {
+                showToast('Seu navegador não suporta notificações do sistema, mas os alertas internos funcionarão normalmente!', 'warning');
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                updateNotificationButtonState();
+                if (permission === 'granted') {
+                    showToast('Notificações ativadas com sucesso! Você será avisado 3 dias antes e no dia do vencimento.', 'success');
+                    checkAndTriggerNotifications(true);
+                } else {
+                    showToast('Permissão negada. Ative as notificações nas configurações do navegador se desejar.', 'warning');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function playNotificationSound() {
+            try {
+                if (typeof Tone !== 'undefined') {
+                    const synth = new Tone.Synth().toDestination();
+                    const now = Tone.now();
+                    synth.triggerAttackRelease('C5', '16n', now);
+                    synth.triggerAttackRelease('E5', '16n', now + 0.12);
+                    synth.triggerAttackRelease('G5', '8n', now + 0.24);
+                }
+            } catch (e) {
+                // Ignora bloqueio de autoplay se o usuário ainda não interagiu com a página
+            }
+        }
+
+        function updateAlertBanner() {
+            const banner = document.getElementById('alertBanner');
+            const summaryText = document.getElementById('alertSummaryText');
+            const badge = document.getElementById('alertTotalBadge');
+
+            const dueIn3Days = clients.filter(c => getDaysRemaining(c.dueDate) === 3);
+            const dueIn1or2Days = clients.filter(c => {
+                const d = getDaysRemaining(c.dueDate);
+                return d === 1 || d === 2;
+            });
+            const dueToday = clients.filter(c => getDaysRemaining(c.dueDate) === 0);
+            const expired = clients.filter(c => getDaysRemaining(c.dueDate) < 0);
+
+            const totalUrgent = dueIn3Days.length + dueIn1or2Days.length + dueToday.length + expired.length;
+
+            if (totalUrgent === 0) {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            badge.textContent = totalUrgent;
+            let parts = [];
+            if (dueToday.length > 0) parts.push(`🚨 ${dueToday.length} vence(m) HOJE`);
+            if (dueIn3Days.length > 0) parts.push(`⏳ ${dueIn3Days.length} falta(m) 3 dias`);
+            if (dueIn1or2Days.length > 0) parts.push(`⚠️ ${dueIn1or2Days.length} vence(m) em 1-2 dias`);
+            if (expired.length > 0) parts.push(`❌ ${expired.length} já vencido(s)`);
+
+            summaryText.textContent = parts.join('  •  ');
+            banner.classList.remove('hidden');
+        }
+
+        function dismissAlertBanner() {
+            document.getElementById('alertBanner').classList.add('hidden');
+        }
+
+        function checkAndTriggerNotifications(force = false) {
+            const todayKey = formatDateISO(new Date());
+            let notifiedLog = {};
+
+            try {
+                const savedLog = JSON.parse(localStorage.getItem(NOTIFIED_LOG_KEY) || '{}');
+                if (savedLog.date === todayKey) {
+                    notifiedLog = savedLog.items || {};
+                }
+            } catch (e) {
+                notifiedLog = {};
+            }
+
+            let triggeredAny = false;
+
+            clients.forEach(client => {
+                const days = getDaysRemaining(client.dueDate);
+                // Notifica especialmente quando faltar 3 dias, 2 dias, 1 dia ou no DIA (0)
+                if (days >= 0 && days <= 3) {
+                    const logKey = `${client.id}_${days}`;
+                    if (!force && notifiedLog[logKey]) return;
+
+                    let title = '';
+                    let body = '';
+
+                    if (days === 0) {
+                        title = `🚨 VENCE HOJE: ${client.name}`;
+                        body = `A mensalidade IPTV de ${client.name} (${formatCurrency(client.price)}) vence hoje!`;
+                    } else if (days === 3) {
+                        title = `⏳ Faltam 3 dias: ${client.name}`;
+                        body = `O plano de ${client.name} (${formatCurrency(client.price)}) vence em 3 dias (${formatDateBR(client.dueDate)}).`;
+                    } else {
+                        title = `⚠️ Vence em ${days} ${days === 1 ? 'dia' : 'dias'}: ${client.name}`;
+                        body = `Lembrete: plano de ${client.name} vence dia ${formatDateBR(client.dueDate)}.`;
+                    }
+
+                    // Toast interno
+                    showToast(`${title} — ${body}`, days === 0 ? 'warning' : 'info');
+
+                    // Notificação nativa do navegador
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification(title, {
+                            body: body,
+                            tag: logKey
+                        });
+                    }
+
+                    notifiedLog[logKey] = true;
+                    triggeredAny = true;
+                }
+            });
+
+            if (triggeredAny) {
+                playNotificationSound();
+                localStorage.setItem(NOTIFIED_LOG_KEY, JSON.stringify({
+                    date: todayKey,
+                    items: notifiedLog
+                }));
+            }
+        }
+
+        function testNotification() {
+            playNotificationSound();
+            showToast('🔔 Alerta de Teste: Assim você será avisado quando faltar 3 dias ou no dia do vencimento!', 'success');
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Gestor IPTV • Teste de Notificação', {
+                    body: 'Tudo certo! Você receberá alertas quando faltar 3 dias e no dia do vencimento dos clientes.'
+                });
+            } else if ('Notification' in window && Notification.permission !== 'denied') {
+                requestNotificationPermission();
+            }
+        }
+
+        // ==================== AÇÕES RÁPIDAS (RENOVAR & WHATSAPP) ====================
+        function renewClient(id) {
+            const idx = clients.findIndex(c => c.id === id);
+            if (idx === -1) return;
+
+            const client = clients[idx];
+            // Se já estiver vencido, renova +30 dias a partir de hoje; senão soma +30 dias na data atual de vencimento
+            const daysRemaining = getDaysRemaining(client.dueDate);
+            let baseDate;
+
+            if (daysRemaining < 0) {
+                baseDate = new Date();
+            } else {
+                const [y, m, d] = client.dueDate.split('-').map(Number);
+                baseDate = new Date(y, m - 1, d);
+            }
+
+            baseDate.setDate(baseDate.getDate() + 30);
+            client.dueDate = formatDateISO(baseDate);
+
+            saveClientsToStorage();
+            renderAll();
+            showToast(`✅ ${client.name} renovado até ${formatDateBR(client.dueDate)}!`, 'success');
+        }
+
+        function sendWhatsAppReminder(id) {
+            const client = clients.find(c => c.id === id);
+            if (!client) return;
+
+            const days = getDaysRemaining(client.dueDate);
+            const valor = formatCurrency(client.price);
+            const dataFmt = formatDateBR(client.dueDate);
+
+            let msg = '';
+            if (days < 0) {
+                msg = `Olá *${client.name}*, tudo bem? Passando para avisar que sua assinatura IPTV venceu no dia *${dataFmt}* (valor: *${valor}*). Deseja renovar para continuar aproveitando sem interrupções?`;
+            } else if (days === 0) {
+                msg = `Olá *${client.name}*, tudo bem? Passando para lembrar que sua mensalidade IPTV vence *HOJE (${dataFmt})* no valor de *${valor}*. Segue o aviso para renovação!`;
+            } else {
+                msg = `Olá *${client.name}*, tudo bem? Passando para lembrar que faltam *${days} ${days === 1 ? 'dia' : 'dias'}* para o vencimento da sua assinatura IPTV (dia *${dataFmt}*, valor: *${valor}*).`;
+            }
+
+            const cleanPhone = (client.phone || '').replace(/\D/g, '');
+            const phoneWithCountry = cleanPhone ? (cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`) : '';
+            const url = phoneWithCountry
+                ? `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`
+                : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+
+            window.open(url, '_blank');
+        }
+
+        // ==================== MODAL DE CADASTRO / EDIÇÃO & UPLOAD DE FOTO ====================
+        function openClientModal(id = null) {
+            const modal = document.getElementById('clientModal');
+            const form = document.getElementById('clientForm');
+            form.reset();
+
+            currentPhotoBase64 = '';
+            document.getElementById('photoImgPreview').classList.add('hidden');
+            document.getElementById('photoInitialsPreview').classList.remove('hidden');
+            document.getElementById('btnRemovePhoto').classList.add('hidden');
+
+            if (id) {
+                const client = clients.find(c => c.id === id);
+                if (!client) return;
+
+                document.getElementById('modalTitle').innerHTML = `<i class="ph-bold ph-pencil-simple text-blue-400"></i> <span>Editar Cliente</span>`;
+                document.getElementById('clientId').value = client.id;
+                document.getElementById('clientName').value = client.name;
+                document.getElementById('clientPhone').value = client.phone || '';
+                document.getElementById('clientPrice').value = client.price;
+                document.getElementById('clientCost').value = client.cost;
+                document.getElementById('clientDueDate').value = client.dueDate;
+                document.getElementById('clientNotes').value = client.notes || '';
+
+                if (client.photo) {
+                    currentPhotoBase64 = client.photo;
+                    document.getElementById('photoImgPreview').src = client.photo;
+                    document.getElementById('photoImgPreview').classList.remove('hidden');
+                    document.getElementById('photoInitialsPreview').classList.add('hidden');
+                    document.getElementById('btnRemovePhoto').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('modalTitle').innerHTML = `<i class="ph-bold ph-user-plus text-blue-400"></i> <span>Novo Cliente IPTV</span>`;
+                document.getElementById('clientId').value = '';
+
+                // Data padrão: +30 dias a partir de hoje
+                const defaultDue = new Date();
+                defaultDue.setDate(defaultDue.getDate() + 30);
+                document.getElementById('clientDueDate').value = formatDateISO(defaultDue);
+            }
+
+            updateInitialsPreview();
+            updateModalProfitPreview();
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeClientModal() {
+            const modal = document.getElementById('clientModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function updateInitialsPreview() {
+            const name = document.getElementById('clientName').value;
+            document.getElementById('photoInitialsPreview').textContent = getInitials(name || 'IP');
+        }
+
+        function updateModalProfitPreview() {
+            const price = parseFloat(document.getElementById('clientPrice').value) || 0;
+            const cost = parseFloat(document.getElementById('clientCost').value) || 0;
+            const profit = price - cost;
+            const el = document.getElementById('modalProfitPreview');
+            el.textContent = formatCurrency(profit);
+            el.className = `font-bold text-sm ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        }
+
+        function addDaysToModalDate(days) {
+            const input = document.getElementById('clientDueDate');
+            let base = input.value ? new Date(input.value + 'T00:00:00') : new Date();
+            base.setDate(base.getDate() + days);
+            input.value = formatDateISO(base);
+        }
+
+        /**
+         * Redimensiona a foto enviada pelo usuário usando Canvas HTML5 (160x160px JPEG)
+         * para garantir que o localStorage suporte dezenas/centenas de clientes sem travar.
+         */
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const size = 160;
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+
+                    // Crop centralizado quadrado
+                    const minSide = Math.min(img.width, img.height);
+                    const sx = (img.width - minSide) / 2;
+                    const sy = (img.height - minSide) / 2;
+
+                    ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+                    currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.78);
+
+                    document.getElementById('photoImgPreview').src = currentPhotoBase64;
+                    document.getElementById('photoImgPreview').classList.remove('hidden');
+                    document.getElementById('photoInitialsPreview').classList.add('hidden');
+                    document.getElementById('btnRemovePhoto').classList.remove('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removePhoto() {
+            currentPhotoBase64 = '';
+            document.getElementById('clientPhotoInput').value = '';
+            document.getElementById('photoImgPreview').classList.add('hidden');
+            document.getElementById('photoInitialsPreview').classList.remove('hidden');
+            document.getElementById('btnRemovePhoto').classList.add('hidden');
+        }
+
+        function saveClient(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('clientId').value;
+            const name = document.getElementById('clientName').value.trim();
+            const phone = document.getElementById('clientPhone').value.trim();
+            const price = parseFloat(document.getElementById('clientPrice').value) || 0;
+            const cost = parseFloat(document.getElementById('clientCost').value) || 0;
+            const dueDate = document.getElementById('clientDueDate').value;
+            const notes = document.getElementById('clientNotes').value.trim();
+
+            if (!name || !dueDate) {
+                showToast('Preencha o nome e a data de vencimento.', 'error');
+                return;
+            }
+
+            if (id) {
+                const index = clients.findIndex(c => c.id === id);
+                if (index !== -1) {
+                    clients[index] = {
+                        ...clients[index],
+                        name,
+                        phone,
+                        price,
+                        cost,
+                        dueDate,
+                        notes,
+                        photo: currentPhotoBase64
+                    };
+                    showToast('Cliente atualizado com sucesso!', 'success');
+                }
+            } else {
+                const newClient = {
+                    id: 'cli_' + Date.now(),
+                    name,
+                    phone,
+                    price,
+                    cost,
+                    dueDate,
+                    notes,
+                    photo: currentPhotoBase64
+                };
+                clients.push(newClient);
+                showToast('Novo cliente cadastrado!', 'success');
+            }
+
+            saveClientsToStorage();
+            closeClientModal();
+            renderAll();
+            checkAndTriggerNotifications(false);
+        }
+
+        // ==================== EXCLUSÃO DE CLIENTE ====================
+        function askDeleteClient(id) {
+            const client = clients.find(c => c.id === id);
+            if (!client) return;
+
+            clientToDeleteId = id;
+            document.getElementById('deleteModalText').textContent = `Tem certeza que deseja excluir "${client.name}"? Essa ação não pode ser desfeita.`;
+
+            const modal = document.getElementById('deleteModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            document.getElementById('confirmDeleteBtn').onclick = function () {
+                clients = clients.filter(c => c.id !== clientToDeleteId);
+                saveClientsToStorage();
+                closeDeleteModal();
+                renderAll();
+                showToast('Cliente removido.', 'info');
+            };
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('deleteModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            clientToDeleteId = null;
+        }
+
+        // ==================== BACKUP: EXPORTAR E IMPORTAR JSON ====================
+        function exportData() {
+            const dataStr = JSON.stringify(clients, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_gestor_iptv_${formatDateISO(new Date())}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('Backup JSON exportado com sucesso!', 'success');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!Array.isArray(imported)) throw new Error('Formato inválido');
+
+                    clients = imported;
+                    saveClientsToStorage();
+                    renderAll();
+                    showToast(`${clients.length} clientes importados com sucesso!`, 'success');
+                } catch (err) {
+                    showToast('Erro ao importar arquivo JSON. Verifique se o arquivo é válido.', 'error');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // ==================== TOAST NOTIFICATIONS INTERNAS ====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            let colors = 'bg-gray-900 border-gray-700 text-gray-100';
+            let icon = 'ph-info text-blue-400';
+
+            if (type === 'success') {
+                colors = 'bg-emerald-950/95 border-emerald-500/50 text-emerald-100';
+                icon = 'ph-check-circle text-emerald-400';
+            } else if (type === 'warning') {
+                colors = 'bg-amber-950/95 border-amber-500/50 text-amber-100';
+                icon = 'ph-warning text-amber-400';
+            } else if (type === 'error') {
+                colors = 'bg-rose-950/95 border-rose-500/50 text-rose-100';
+                icon = 'ph-x-circle text-rose-400';
+            }
+
+            toast.className = `pointer-events-auto flex items-start gap-2.5 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-md text-xs font-medium transition-all duration-300 ${colors}`;
+            toast.innerHTML = `
+                <i class="ph-fill ${icon} text-lg shrink-0 mt-0.5"></i>
+                <span class="flex-grow leading-relaxed">${escapeHtml(message)}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4500);
+        }
+    </script>
+</body>
+</html>
